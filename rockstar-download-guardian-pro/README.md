@@ -1,40 +1,55 @@
 # Rockstar Download Guardian Pro
 
-Aplicativo desktop original para Windows 11 x64 em C# / .NET 8 e WPF, com bandeja do sistema via Windows Forms. Observa a instalação do GTA V, gravações do processo Launcher e novas linhas do launcher.log. Tenta recuperar interrupções sem mover o mouse. Não é afiliado à Rockstar e não garante recuperação de problemas de servidor, autenticação ou arquivos corrompidos.
+Aplicativo original para Windows 11 x64, C# / .NET 8 e WPF. Basta executá-lo: a observação e a recuperação do Rockstar Games Launcher começam automaticamente, sem selecionar a pasta do GTA V, preencher formulários ou clicar em Iniciar.
 
-## Executar e usar
+## Uso automático
 
-1. Execute o arquivo publicado `publish/Rockstar Download Guardian Pro.exe` ou use o atalho na Área de Trabalho.
-2. Revise a pasta específica do jogo, o Launcher.exe oficial e o launcher.log. A detecção verifica Registro 32/64 bits e caminhos padrão. Instalações Steam/Epic podem exigir seleção manual.
-3. Configure o alvo (padrão 115 GB decimais; ajuste à edição instalada). Leia o aviso local e marque o consentimento, desmarcado em toda abertura.
-4. Clique em **Iniciar monitoramento**. Fechar ou minimizar recolhe à bandeja. O menu permite abrir, pausar/retomar, reiniciar e sair. Pause também quando pausar intencionalmente o download no Launcher.
-5. O desligamento automático é opcional, desativado inicialmente. Ao atingir o alvo após observar atividade e manter 60 segundos sem mudanças, o app mostra uma contagem adicional de 60 segundos com cancelamento. Pausar, apagar dados ou sair cancela a contagem. A conclusão por tamanho é uma heurística: pré-alocação pode gerar falso positivo. O app não confirma integridade nem licença do GTA.
+- Abra o atalho **Rockstar Download Guardian Pro** na Área de Trabalho.
+- O app detecta o Launcher em execução, o Registro e os caminhos padrão. Observa também janelas pertencentes ao SocialClubHelper e LauncherPatcher da mesma instalação.
+- Procura os logs em Documentos, inclusive Documentos redirecionados pelo Windows/OneDrive. Se o Launcher ainda não estiver aberto ou acessível, repete a detecção em segundo plano.
+- Ao encontrar um botão reconhecido de nova tentativa, envia o comando de retomada por UI Automation ou pela acessibilidade MSAA, sem mover o mouse ou pedir confirmação. Verifica novamente a cada ciclo, limitando a frequência de comandos.
+- Fechar ou minimizar recolhe à bandeja. Abrir o atalho novamente traz a mesma instância de volta. O menu da bandeja permite abrir, pausar/retomar, solicitar reinício manual ou sair.
 
-## Recuperação
+Nenhuma configuração é obrigatória. A pasta do GTA é opcional e serve apenas para estimar tamanho, ETA, conclusão e permitir limpeza de arquivos vazios no reinício. Sem pasta válida, a recuperação continua pelos processos, interface e logs; o app não inventa porcentagem, ETA ou conclusão e não agenda desligamento por tamanho.
 
-- Erro novo no log ou 25 segundos sem E/S/crescimento: procura botões Retry, Resume, Tentar novamente ou Continuar por UI Automation. Não movimenta cursor, não ativa a janela e não garante suporte se o Launcher não expuser acessibilidade, se estiver elevado ou se o botão não existir.
-- Após mais 15 segundos sem retomada: executa `ipconfig /flushdns` sem console e tenta o botão de novo. Isso limpa o cache DNS, não altera rotas. Pode exigir privilégios.
-- Após mais 20 segundos: encerra apenas processos Launcher/LauncherPatcher da pasta escolhida e SocialClubHelper dessa instalação/pasta Social Club irmã; aguarda cinco segundos, remove somente .lock/.part de zero bytes na pasta do jogo e reabre minimizado (o Launcher pode ignorar a solicitação de minimizar).
-- Máximo de três reinícios por sessão e intervalo de dois minutos após cada reinício. Erros de acesso interrompem o monitoramento em vez de simular velocidade zero. Junctions e links não são percorridos. Não execute como administrador a menos que necessário para acessar um Launcher já elevado.
+## Como a recuperação decide agir
 
-## Métricas e limitações
+1. Um controle reconhecido de **Tentar novamente / Tente novamente / Retry / Try again / Retry download** ou um erro novo no log inicia a recuperação. Um download que a interface indica estar ativo também pode iniciar recuperação após 25 segundos sem atividade. Launcher ocioso ou pausado sem erro não é motivo suficiente para reiniciar.
+2. Procura **Continuar / Resume / Retomar download** apenas no contexto de erro ou recuperação. Uma pausa explícita sem erro não é retomada automaticamente.
+3. Após 15 segundos sem melhora, tenta `ipconfig /flushdns` sem console e procura o controle de retomada novamente. A limpeza afeta o cache DNS, não rotas; se falhar por permissões, registra a limitação e continua.
+4. Após mais 20 segundos sem melhora, reinicia apenas processos da instalação Rockstar detectada. Aguarda cinco segundos e reabre o Launcher minimizado, se o próprio Launcher aceitar esse estado. Sem uma pasta de jogo válida, não remove arquivo algum. Com pasta válida, só remove .lock/.part de zero bytes, sem percorrer links ou junctions.
+5. Há intervalo de dois minutos após reinício. Após três reinícios, suspende novos reinícios por 30 minutos; a observação e as tentativas de acionar Retry continuam. A proteção contra suspensão só é solicitada quando há download identificado ou recuperação ativa.
 
-Amostras sequenciais, sem sobreposição, a cada cinco segundos após o processamento. O total é a soma dos tamanhos lógicos dos arquivos da pasta. E/S em MB/s usa o delta de `GetProcessIoCounters.WriteTransferCount` do Launcher selecionado dividido pelo tempo decorrido real: inclui outras gravações desse processo e não equivale a uma medição exclusiva do disco ou da rede do GTA. Não atribui E/S de processos filhos ao jogo. A ETA usa média móvel de até 12 amostras. A indicação de rede mostra disponibilidade de interface, não conectividade com servidores Rockstar. A varredura pode demorar em discos lentos/pastas grandes. A leitura de log consulta somente conteúdo novo, limita cada leitura a 64 KiB e reinicia ao detectar rotação/truncamento.
+Uma recuperação só gera notificação de retomada quando há sinais posteriores de atividade de download; o envio de um clique sozinho não prova que o download voltou. Logs e interface inacessíveis não são tratados como prova de download travado.
 
-## Privacidade e dados
+## Preferências opcionais
 
-Sem servidores, contas, telemetria, analytics, cookies ou bibliotecas de terceiros. Processa caminhos locais (podem conter nome do perfil Windows), tamanhos de arquivos, contadores do Launcher, disponibilidade da rede e trechos do log em memória. Nunca persiste o conteúdo do log. Configurações ficam em `data/settings.json` ao lado do executável, protegido do Git pelo `.gitignore`. O botão **Apagar meus dados** interrompe ações, remove configurações e limpa histórico/campos da sessão; não apaga jogo, logs originais ou metadados de sistema operacional. Não há criptografia do JSON: use a pasta de usuário com permissões adequadas. O próprio Launcher pode acessar serviços externos independentemente deste app.
+O painel mostra um resumo do modo automático e uma seção recolhida de preferências. Pause para editar e salvar caminhos substitutos, tamanho alvo ou desligamento automático. O salvamento exige aviso de privacidade e checkbox desmarcado por padrão. Depois, retome a observação. Abrir o programa nas próximas vezes volta a iniciar a observação automaticamente.
 
-## Compilar um executável único
+O desligamento é desativado por padrão. Quando habilitado com pasta válida, exige atividade de download observada, tamanho alvo atingido e 60 segundos de estabilidade, seguidos de uma contagem adicional de 60 segundos para cancelar. Pausar, apagar dados ou sair cancela essa contagem. Tamanho lógico não confirma integridade: arquivos pré-alocados podem causar conclusão antecipada. Confirme a edição e o tamanho do jogo antes de habilitar essa opção.
 
-Instale SDK .NET 8 para Windows e execute nesta pasta:
+## Privacidade
+
+A observação automática processa caminhos, identificadores dos processos Rockstar, E/S, rótulos acessíveis de controles e trechos novos dos logs apenas em memória. Não pede nome, e-mail ou outros dados ao usuário. Não tem servidor, telemetria, analytics ou rastreamento e não grava conteúdo dos logs. O Launcher pode acessar serviços externos por conta própria.
+
+Somente ao optar por **Salvar preferências opcionais**, caminhos e preferências são gravados em `data/settings.json` ao lado do executável, após consentimento. Caminhos podem conter o nome do perfil Windows. O JSON não é criptografado; use as permissões da conta Windows. **Apagar meus dados** pausa a observação, remove o JSON e limpa a sessão; não apaga jogo, logs da Rockstar nem metadados do sistema. Nova execução do app inicia novamente a observação em memória.
+
+## Limites técnicos
+
+O app não é afiliado à Rockstar e não garante resolver falhas de servidor, autenticação ou corrupção. UI Automation e o mecanismo alternativo MSAA dependem dos controles que o Launcher expõe, inclusive quando minimizado. Controles sem nome/padrão de ação ou um Launcher elevado podem impedir o comando automático. Nesses casos, o app registra o estado e usa os outros sinais disponíveis; não faz cliques cegos nem tenta burlar autenticação.
+
+A taxa em MB/s é a E/S agregada de gravação dos processos Rockstar selecionados, via GetProcessIoCounters; não é uma medição exclusiva de disco nem de tráfego do GTA. A média móvel usa até 12 amostras. O indicador de rede mostra interface disponível, não garante conexão com servidores Rockstar. A leitura ocorre em ciclos de cinco segundos após o processamento, com até três segundos por mecanismo para consulta da interface e leitura de log limitada a 64 KiB. Provedores bloqueados não geram consultas simultâneas ilimitadas.
+
+## Compilar e testar
+
+Com SDK .NET 8 para Windows:
 
 ```powershell
-dotnet publish RockstarGuardian.csproj -c Release -r win-x64 --self-contained true -o publish
+.\build.ps1
 ```
 
-WPF, Windows Forms e UIAutomation são referências do framework Microsoft, sem pacotes externos. O executável contém o runtime; bibliotecas nativas podem ser extraídas pelo .NET ao executar. Código fonte em App/MainWindow, modelos em Models e serviços separados em Services. Configurações, SDK local, objetos e binários gerados não são versionados.
+O script executa os testes e publica `publish/Rockstar Download Guardian Pro.exe` como executável único win-x64 com runtime embutido. O SDK local, se disponível em `.tools/dotnet`, e os caches ficam dentro da pasta do app. Caminhos longos são encurtados por um mapeamento de unidade temporário removido ao final. Não há pacotes externos ao framework Microsoft. `create-desktop-shortcut.ps1` recria o atalho quando solicitado.
 
-`build.ps1` executa os testes e publica o executável. `create-desktop-shortcut.ps1` cria o atalho na Área de Trabalho quando solicitado. Os testes em `tests/` verificam os limiares da cascata, as condições de conclusão e a leitura incremental/truncamento de logs; não encerram o Launcher, limpam DNS nem desligam o computador.
+Os testes verificam tempos de escalonamento, condições de conclusão, logs incrementais/truncados e reconhecimento de sinais/decisão de recuperação sem pasta. Não limpam DNS, encerram o Launcher nem desligam o computador.
 
-Referências técnicas: [GetProcessIoCounters](https://learn.microsoft.com/en-us/windows/win32/api/winbase/nf-winbase-getprocessiocounters), [SetThreadExecutionState](https://learn.microsoft.com/en-us/windows/win32/api/winbase/nf-winbase-setthreadexecutionstate) e [SDK local do .NET](https://learn.microsoft.com/en-us/dotnet/core/tools/dotnet-install-script).
+Referências: [InvokePattern](https://learn.microsoft.com/en-us/dotnet/api/system.windows.automation.invokepattern), [E/S por processo](https://learn.microsoft.com/en-us/windows/win32/api/winbase/nf-winbase-getprocessiocounters) e [SetThreadExecutionState](https://learn.microsoft.com/en-us/windows/win32/api/winbase/nf-winbase-setthreadexecutionstate).

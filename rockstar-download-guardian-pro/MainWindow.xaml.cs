@@ -26,7 +26,7 @@ public partial class MainWindow : Window
     {
         InitializeComponent();
         settings = Settings.Load();
-        try { DetectionService.Detect(settings); } catch { AddEvent("Detecção automática indisponível. Selecione os caminhos manualmente."); }
+        try { DetectionService.Detect(settings); } catch { AddEvent("Detecção será repetida em segundo plano."); }
         ShowSettings();
         tray.Text = "Rockstar Guardian Pro • Pausado"; SetIcon(Drawing.Color.Gray);
         var menu = new Forms.ContextMenuStrip();
@@ -46,7 +46,8 @@ public partial class MainWindow : Window
             try { System.Diagnostics.Process.Start(new System.Diagnostics.ProcessStartInfo(Path.Combine(Environment.SystemDirectory, "shutdown.exe"), "/s /t 0") { UseShellExecute = false, CreateNoWindow = true }); }
             catch { AddEvent("Não foi possível solicitar desligamento."); }
         };
-        AddEvent("Painel pronto. Revise os caminhos e autorize a leitura local para iniciar.");
+        AddEvent("Modo automático: Launcher e logs são detectados sem selecionar pastas.");
+        Loaded += async (_, _) => await ToggleAsync();
     }
     private void ShowSettings()
     {
@@ -57,12 +58,13 @@ public partial class MainWindow : Window
     {
         if (Consent.IsChecked != true) { MessageBox.Show(this, "Marque o consentimento de processamento local antes de continuar."); return false; }
         if (!double.TryParse(Target.Text, out double gb) || !double.IsFinite(gb) || gb < 1 || gb > 10000) { MessageBox.Show(this, "Informe um alvo entre 1 e 10000 GB."); return false; }
-        if (!Directory.Exists(GamePath.Text) || !File.Exists(LauncherPath.Text) || !Path.GetFileName(LauncherPath.Text).Equals("Launcher.exe", StringComparison.OrdinalIgnoreCase)) { MessageBox.Show(this, "Selecione a pasta existente do GTA V e o Launcher.exe oficial."); return false; }
+        if (!string.IsNullOrWhiteSpace(LauncherPath.Text) && (!File.Exists(LauncherPath.Text) || !Path.GetFileName(LauncherPath.Text).Equals("Launcher.exe", StringComparison.OrdinalIgnoreCase))) { MessageBox.Show(this, "O caminho opcional precisa apontar para Launcher.exe. Deixe vazio para detectar automaticamente."); return false; }
         try
         {
-            string game = Path.GetFullPath(GamePath.Text);
-            if (game.TrimEnd(Path.DirectorySeparatorChar).Equals(Path.GetPathRoot(game)?.TrimEnd(Path.DirectorySeparatorChar), StringComparison.OrdinalIgnoreCase) || (File.GetAttributes(game) & FileAttributes.ReparsePoint) != 0) { MessageBox.Show(this, "Escolha a pasta específica do jogo, sem links ou raiz de unidade."); return false; }
-            settings = new Settings { GamePath = game, LauncherPath = Path.GetFullPath(LauncherPath.Text), LogPath = Path.GetFullPath(LogPath.Text), TargetGb = gb, ShutdownWhenDone = ShutdownOption.IsChecked == true };
+            string game = string.IsNullOrWhiteSpace(GamePath.Text) ? "" : Path.GetFullPath(GamePath.Text);
+            if (game != "" && (!Directory.Exists(game) || game.TrimEnd(Path.DirectorySeparatorChar).Equals(Path.GetPathRoot(game)?.TrimEnd(Path.DirectorySeparatorChar), StringComparison.OrdinalIgnoreCase) || (File.GetAttributes(game) & FileAttributes.ReparsePoint) != 0)) { MessageBox.Show(this, "Deixe a pasta vazia para modo automático ou indique uma pasta específica válida."); return false; }
+            var detected = new Settings(); DetectionService.Detect(detected);
+            settings = new Settings { GamePath = game, LauncherPath = string.IsNullOrWhiteSpace(LauncherPath.Text) ? detected.LauncherPath : Path.GetFullPath(LauncherPath.Text), LogPath = string.IsNullOrWhiteSpace(LogPath.Text) ? detected.LogPath : Path.GetFullPath(LogPath.Text), TargetGb = gb, ShutdownWhenDone = ShutdownOption.IsChecked == true };
             settings.Save(); return true;
         }
         catch { MessageBox.Show(this, "Não foi possível salvar. Confira os caminhos e a permissão de escrita na pasta do app."); return false; }
@@ -71,10 +73,8 @@ public partial class MainWindow : Window
     {
         if (busy) return;
         if (monitoring != null) { await StopAsync(); return; }
-        OpenPanel(); if (!ReadSettings()) return;
         monitoring = new CancellationTokenSource(); var token = monitoring.Token;
         ConfigPanel.IsEnabled = Consent.IsEnabled = false; ToggleButton.Content = "Pausar monitoramento";
-        if (!PowerService.SetActive(true)) AddEvent("Não foi possível ativar anti-suspensão.");
         var monitor = new MonitorService(settings);
         monitor.Event += text => Dispatcher.BeginInvoke(() => { if (!token.IsCancellationRequested) AddEvent(text); });
         monitor.Updated += sample => Dispatcher.BeginInvoke(() => { if (!token.IsCancellationRequested) Render(sample); });
@@ -89,7 +89,7 @@ public partial class MainWindow : Window
                 OpenPanel(); shutdownTimer.Start();
             }
         });
-        StatusLabel.Text = "● Monitoramento ativo"; AddEvent("Monitoramento iniciado; anti-suspensão solicitado.");
+        StatusLabel.Text = "● Proteção automática ativa"; AddEvent("Observação automática iniciada. Retry será acionado ao detectar falha.");
         loop = RunMonitorAsync(monitor, token);
         await Task.CompletedTask;
     }
@@ -115,11 +115,13 @@ public partial class MainWindow : Window
     }
     private void Render(Snapshot s)
     {
-        SpeedLabel.Text = $"{s.Speed:F2} MB/s"; SizeLabel.Text = $"{s.Bytes / 1_000_000_000d:F1} / {settings.TargetGb:G} GB";
+        PowerService.SetActive(s.Active);
+        SpeedLabel.Text = $"{s.Speed:F2} MB/s"; SizeLabel.Text = s.Bytes >= 0 ? $"{s.Bytes / 1_000_000_000d:F1} / {settings.TargetGb:G} GB" : "Automático";
         EtaLabel.Text = s.EtaSeconds is double eta && eta < TimeSpan.MaxValue.TotalSeconds ? $"{(int)(eta / 3600)}h {((int)(eta / 60) % 60)}m" : "Aguardando";
-        Progress.Value = Math.Clamp(s.Bytes / (settings.TargetGb * 1_000_000_000d) * 100, 0, 100);
+        Progress.IsIndeterminate = s.Bytes < 0 && s.Active;
+        Progress.Value = s.Bytes >= 0 ? Math.Clamp(s.Bytes / (settings.TargetGb * 1_000_000_000d) * 100, 0, 100) : 0;
         StatusLabel.Text = "● " + s.State;
-        NetworkLabel.Text = (s.Online ? "Rede disponível" : "Sem interface de rede conectada") + " • E/S de processo + pasta + logs • amostra a cada 5 s";
+        NetworkLabel.Text = (s.Online ? "Rede disponível" : "Sem interface de rede conectada") + " • detecção automática • interface + processos + logs";
         SetIcon(s.Level < 0 ? Drawing.Color.IndianRed : s.Level > 0 ? Drawing.Color.Gold : s.Speed > .01 ? Drawing.Color.MediumSeaGreen : Drawing.Color.Gray);
     }
     private void SetIcon(Drawing.Color color)
@@ -140,7 +142,9 @@ public partial class MainWindow : Window
     {
         if (busy) return;
         if (monitoring != null) await StopAsync();
-        OpenPanel(); if (!ReadSettings()) return;
+        OpenPanel();
+        try { DetectionService.Refresh(settings); } catch { }
+        if (!File.Exists(settings.LauncherPath)) { AddEvent("Aguardando detecção da instalação do Launcher."); return; }
         if (MessageBox.Show(this, "Encerrar os processos Rockstar da instalação selecionada e reabrir o Launcher? O download poderá ser interrompido. Só arquivos .lock/.part vazios serão removidos.", "Reinício do Launcher", MessageBoxButton.YesNo, MessageBoxImage.Question) != MessageBoxResult.Yes) return;
         busy = true; ConfigPanel.IsEnabled = false;
         try { await new ProcessManager().RestartAsync(settings.LauncherPath, settings.GamePath, CancellationToken.None); AddEvent("Launcher reiniciado. Inicie o monitoramento quando desejar."); }
@@ -149,6 +153,11 @@ public partial class MainWindow : Window
     }
     private void CancelShutdown() { shutdownTimer.Stop(); ShutdownPanel.Visibility = Visibility.Collapsed; }
     private async void ToggleClick(object sender, RoutedEventArgs e) => await ToggleAsync();
+    private void SaveClick(object sender, RoutedEventArgs e)
+    {
+        if (monitoring != null || busy) { MessageBox.Show(this, "Pause o monitoramento para salvar preferências opcionais."); return; }
+        if (ReadSettings()) { ShowSettings(); AddEvent("Preferências opcionais salvas localmente. Retome para aplicar."); }
+    }
     private async void RestartClick(object sender, RoutedEventArgs e) => await RestartAsync();
     private async void ExitClick(object sender, RoutedEventArgs e) => await ExitAsync();
     private void CancelShutdownClick(object sender, RoutedEventArgs e) { CancelShutdown(); AddEvent("Desligamento cancelado."); }

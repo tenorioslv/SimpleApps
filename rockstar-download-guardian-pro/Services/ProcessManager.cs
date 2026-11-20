@@ -28,7 +28,8 @@ public sealed class ProcessManager
             { p.Kill(); await p.WaitForExitAsync(ct); }
         }
         await Task.Delay(5000, ct);
-        await Task.Run(() => Clean(new DirectoryInfo(game), ct), ct);
+        if (!string.IsNullOrWhiteSpace(game) && Directory.Exists(game))
+            await Task.Run(() => Clean(new DirectoryInfo(game), ct), ct);
         ct.ThrowIfCancellationRequested();
         Process.Start(new ProcessStartInfo(launcher) { WorkingDirectory = launcherFolder, UseShellExecute = true, WindowStyle = ProcessWindowStyle.Minimized });
     }

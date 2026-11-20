@@ -27,4 +27,16 @@ try
     File.AppendAllText(path, "download successful\n"); Check(!log.ReadError(path), "Não tratar sucesso como erro");
 }
 finally { File.Delete(path); Directory.Delete(folder); }
+Check(LauncherSignals.IsRetry("  TENTE NOVAMENTE...  "), "Reconhecer erro em português");
+Check(LauncherSignals.IsRetry("Retry Download"), "Reconhecer retry do download");
+Check(LauncherSignals.IsRetry("Tentar\nnovamente"), "Reconhecer quebra de linha");
+Check(!LauncherSignals.IsRetry("Cancelar"), "Nunca invocar cancelar");
+Check(!LauncherSignals.IsRetry("Comprar agora"), "Nunca invocar compra");
+Check(LauncherSignals.IsResume("RETOMAR DOWNLOAD"), "Reconhecer retomada");
+Check(!LauncherSignals.ShouldRecover(false, false, false, false, TimeSpan.FromHours(1)), "Não reiniciar Launcher ocioso");
+Check(!LauncherSignals.ShouldRecover(false, false, false, true, TimeSpan.FromHours(1)), "Respeitar pausa sem erro");
+Check(LauncherSignals.ShouldRecover(false, true, false, false, TimeSpan.Zero), "Retry inicia recuperação imediata sem pasta");
+Check(LauncherSignals.ShouldRecover(true, false, false, false, TimeSpan.Zero), "Novo erro de log inicia recuperação sem pasta");
+Check(LauncherSignals.ShouldRecover(false, false, true, false, TimeSpan.FromSeconds(25)), "Download sem progresso inicia recuperação");
+Check(!LauncherSignals.ShouldRecover(false, false, true, false, TimeSpan.FromSeconds(24)), "Não recuperar antes do limiar");
 Console.WriteLine($"{checks} verificações aprovadas.");
