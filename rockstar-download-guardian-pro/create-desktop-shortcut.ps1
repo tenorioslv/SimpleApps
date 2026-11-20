@@ -7,6 +7,7 @@ $linkPath = Join-Path $desktop 'Rockstar Download Guardian Pro.lnk'
 $shell = New-Object -ComObject WScript.Shell
 $link = $shell.CreateShortcut($linkPath)
 $link.TargetPath = $exe
+$link.IconLocation = (Join-Path $PSScriptRoot 'Assets\guardian.ico') + ',0'
 $link.WorkingDirectory = Split-Path -Parent $exe
 $link.Description = 'Monitoramento local do Rockstar Launcher'
 $link.Save()

@@ -82,7 +82,10 @@ public partial class MainWindow : Window
     {
         using var bitmap = new Drawing.Bitmap(32, 32); using var graphics = Drawing.Graphics.FromImage(bitmap);
         graphics.SmoothingMode = Drawing.Drawing2D.SmoothingMode.AntiAlias;
-        using var brush = new Drawing.SolidBrush(color); graphics.FillEllipse(brush, 3, 3, 26, 26);
+        using var brush = new Drawing.SolidBrush(color);
+        graphics.FillPolygon(brush, new[] { new Drawing.Point(16, 2), new Drawing.Point(29, 7), new Drawing.Point(27, 19), new Drawing.Point(23, 25), new Drawing.Point(16, 30), new Drawing.Point(9, 25), new Drawing.Point(5, 19), new Drawing.Point(3, 7) });
+        using var pen = new Drawing.Pen(Drawing.Color.FromArgb(16, 24, 39), 3) { StartCap = Drawing.Drawing2D.LineCap.Round, EndCap = Drawing.Drawing2D.LineCap.Round, LineJoin = Drawing.Drawing2D.LineJoin.Round };
+        graphics.DrawLines(pen, new[] { new Drawing.Point(10, 15), new Drawing.Point(14, 19), new Drawing.Point(22, 11) });
         var handle = bitmap.GetHicon(); using var native = Drawing.Icon.FromHandle(handle);
         var old = tray.Icon; tray.Icon = (Drawing.Icon)native.Clone(); old?.Dispose(); DestroyIcon(handle);
     }

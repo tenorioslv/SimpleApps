@@ -1,5 +1,7 @@
 # Rockstar Download Guardian Pro
 
+Interface escura com painel simplificado e ícone original de escudo, aplicado ao executável, janela e bandeja. `Assets/generate-icon.ps1` recria o ícone em seis tamanhos, sem dependências externas.
+
 Aplicativo Windows 11 x64 em C# / .NET 8 e WPF focado em esperar o erro do Rockstar Games Launcher e tentar acionar **Tentar novamente / Retry** automaticamente quando esse controle aparecer.
 
 ## Uso

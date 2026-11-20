@@ -4,8 +4,9 @@
     <UseWPF>true</UseWPF><UseWindowsForms>true</UseWindowsForms>
     <Nullable>enable</Nullable><ImplicitUsings>disable</ImplicitUsings>
     <AssemblyName>Rockstar Download Guardian Pro</AssemblyName>
+    <ApplicationIcon>Assets\guardian.ico</ApplicationIcon>
     <PublishSingleFile>true</PublishSingleFile><SelfContained>true</SelfContained>
     <RuntimeIdentifier>win-x64</RuntimeIdentifier><IncludeNativeLibrariesForSelfExtract>true</IncludeNativeLibrariesForSelfExtract>
   </PropertyGroup>
-  <ItemGroup><Compile Remove="tests/**/*.cs"/></ItemGroup>
+  <ItemGroup><Compile Remove="tests/**/*.cs"/><Resource Include="Assets/guardian.ico"/><Resource Include="Assets/guardian.png"/></ItemGroup>
 </Project>
