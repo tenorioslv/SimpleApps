@@ -1,0 +1,1 @@
+<Project Sdk="Microsoft.NET.Sdk"><PropertyGroup><OutputType>Exe</OutputType><TargetFramework>net8.0</TargetFramework><ImplicitUsings>enable</ImplicitUsings><Nullable>enable</Nullable></PropertyGroup><ItemGroup><Compile Include="../Services/RecoveryRules.cs" Link="RecoveryRules.cs"/><Compile Include="../Services/LogMonitor.cs" Link="LogMonitor.cs"/></ItemGroup></Project>

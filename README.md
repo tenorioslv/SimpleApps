@@ -6,7 +6,7 @@ Repositório de aplicativos simples, organizados em pastas independentes e docum
 
 ## Aplicativos
 
-Nenhum aplicativo foi criado ainda. Cada novo app será listado aqui com seu nome, descrição e link para a respectiva pasta.
+- [Rockstar Download Guardian Pro](rockstar-download-guardian-pro/) — Aplicativo Windows 11 em C# / .NET 8 WPF que monitora o Rockstar Launcher, tenta recuperar interrupções e oferece bandeja do sistema, configuração local e desligamento opcional com cancelamento.
 
 ## Organização
 
