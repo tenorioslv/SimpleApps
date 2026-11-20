@@ -35,7 +35,7 @@ public partial class MainWindow : Window
         if (busy) return;
         if (monitoring != null) { await StopAsync(); return; }
         monitoring = new CancellationTokenSource(); var token = monitoring.Token;
-        ToggleButton.Content = "Pausar proteção";
+        ToggleButton.Content = "Auto-Retry ativado"; ProtectionGlow.Opacity = 1;
         var monitor = new MonitorService(new Settings());
         monitor.Event += text => Dispatcher.BeginInvoke(() => { if (!token.IsCancellationRequested) AddEvent(text); });
         monitor.Updated += sample => Dispatcher.BeginInvoke(() => { if (!token.IsCancellationRequested) Render(sample); });
@@ -64,8 +64,8 @@ public partial class MainWindow : Window
         {
             monitoring.Cancel(); if (loop != null) await loop;
             monitoring.Dispose(); monitoring = null; loop = null;
-            ToggleButton.Content = "Retomar proteção";
-            StatusLabel.Text = "● Proteção pausada";
+            ToggleButton.Content = "Auto-Retry pausado";
+            StatusLabel.Text = "Proteção pausada"; ProtectionGlow.Opacity = 0.15;
             DetailLabel.Text = "Nenhum botão será acionado enquanto estiver pausado.";
             SetIcon(Drawing.Color.Gray); AddEvent("Proteção pausada.");
         }
@@ -73,7 +73,7 @@ public partial class MainWindow : Window
     }
     private void Render(Snapshot sample)
     {
-        StatusLabel.Text = "● " + sample.State;
+        StatusLabel.Text = sample.State;
         DetailLabel.Text = sample.Detail;
         AttemptsLabel.Text = sample.Attempts.ToString();
         SetIcon(sample.Warning ? Drawing.Color.Gold : sample.Connected ? Drawing.Color.MediumSeaGreen : Drawing.Color.Gray);
@@ -84,8 +84,8 @@ public partial class MainWindow : Window
         graphics.SmoothingMode = Drawing.Drawing2D.SmoothingMode.AntiAlias;
         using var brush = new Drawing.SolidBrush(color);
         graphics.FillPolygon(brush, new[] { new Drawing.Point(16, 2), new Drawing.Point(29, 7), new Drawing.Point(27, 19), new Drawing.Point(23, 25), new Drawing.Point(16, 30), new Drawing.Point(9, 25), new Drawing.Point(5, 19), new Drawing.Point(3, 7) });
-        using var pen = new Drawing.Pen(Drawing.Color.FromArgb(16, 24, 39), 3) { StartCap = Drawing.Drawing2D.LineCap.Round, EndCap = Drawing.Drawing2D.LineCap.Round, LineJoin = Drawing.Drawing2D.LineJoin.Round };
-        graphics.DrawLines(pen, new[] { new Drawing.Point(10, 15), new Drawing.Point(14, 19), new Drawing.Point(22, 11) });
+        using var boltBrush = new Drawing.SolidBrush(Drawing.Color.FromArgb(16,24,27));
+        graphics.FillPolygon(boltBrush, new[] { new Drawing.Point(18,8), new Drawing.Point(11,17), new Drawing.Point(16,17), new Drawing.Point(14,25), new Drawing.Point(23,13), new Drawing.Point(17,13) });
         var handle = bitmap.GetHicon(); using var native = Drawing.Icon.FromHandle(handle);
         var old = tray.Icon; tray.Icon = (Drawing.Icon)native.Clone(); old?.Dispose(); DestroyIcon(handle);
     }
@@ -94,6 +94,9 @@ public partial class MainWindow : Window
         Activity.AppendText($"{DateTime.Now:HH:mm:ss}  {message}{Environment.NewLine}");
         if (Activity.Text.Length > 16000) Activity.Text = Activity.Text[^12000..]; Activity.ScrollToEnd();
     }
+    private void MinimizeClick(object sender, RoutedEventArgs e) => WindowState = WindowState.Minimized;
+    private void MaximizeClick(object sender, RoutedEventArgs e) => WindowState = WindowState == WindowState.Maximized ? WindowState.Normal : WindowState.Maximized;
+    private void CloseClick(object sender, RoutedEventArgs e) => Close();
     private void OpenPanel() { Show(); WindowState = WindowState.Normal; Activate(); }
     private async void ToggleClick(object sender, RoutedEventArgs e) => await ToggleAsync();
     private async void ExitClick(object sender, RoutedEventArgs e) => await ExitAsync();
