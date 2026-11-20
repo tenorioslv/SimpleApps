@@ -1,0 +1,14 @@
+<Project Sdk="Microsoft.NET.Sdk">
+ <PropertyGroup>
+  <OutputType>Exe</OutputType><TargetFramework>net8.0-windows</TargetFramework>
+  <UseWPF>true</UseWPF><UseWindowsForms>true</UseWindowsForms>
+  <AssemblyName>Launcher</AssemblyName><Nullable>enable</Nullable><ImplicitUsings>disable</ImplicitUsings>
+ </PropertyGroup>
+ <ItemGroup>
+  <Compile Include="../../Services/AutomationService.cs" Link="AutomationService.cs"/>
+  <Compile Include="../../Services/LegacyAutomation.cs" Link="LegacyAutomation.cs"/>
+  <Compile Include="../../Services/LauncherProcesses.cs" Link="LauncherProcesses.cs"/>
+  <Compile Include="../../Services/LauncherSignals.cs" Link="LauncherSignals.cs"/>
+  <Compile Include="../../Services/RetryPolicy.cs" Link="RetryPolicy.cs"/>
+ </ItemGroup>
+</Project>

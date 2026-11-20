@@ -24,5 +24,10 @@ $env:DOTNET_GENERATE_ASPNET_CERTIFICATE = 'false'
 $env:DOTNET_NOLOGO = '1'
 & $sdk run --project (Join-Path $appRoot 'tests\Guardian.Tests.csproj') -c Release
 if ($LASTEXITCODE -ne 0) { throw 'Testes falharam.' }
+& $sdk build (Join-Path $appRoot 'tests\ui-smoke\RetryUiSmoke.csproj') -c Release
+if ($LASTEXITCODE -ne 0) { throw 'Compilação do teste de interface falhou.' }
+$env:DOTNET_ROOT = Split-Path -Parent $sdk
+& (Join-Path $appRoot 'tests\ui-smoke\bin\Release\net8.0-windows\Launcher.exe')
+if ($LASTEXITCODE -ne 0) { throw 'Teste de retomada pela interface falhou.' }
 & $sdk publish (Join-Path $appRoot 'RockstarGuardian.csproj') -c Release -r win-x64 --self-contained true -o (Join-Path $appRoot 'publish') -p:DebugType=None -p:DebugSymbols=false
 if ($LASTEXITCODE -ne 0) { throw 'Publicação falhou.' }

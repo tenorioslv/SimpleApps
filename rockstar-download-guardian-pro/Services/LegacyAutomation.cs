@@ -15,7 +15,7 @@ public static class LegacyAutomation
     // Compatibilidade com interfaces que expõem MSAA em vez de InvokePattern.
     public static LauncherUiState Inspect(string launcher, bool retryAction, bool resumeAction, Func<Action, bool> invoke, CancellationToken ct)
     {
-        bool retry = false, resume = false, downloading = false, exposed = false, invoked = false;
+        bool retry = false, resume = false, exposed = false, invoked = false;
         var ids = new HashSet<int>(LauncherProcesses.Find(launcher)); var handles = new List<IntPtr>();
         EnumWindows((window, _) =>
         {
@@ -39,11 +39,10 @@ public static class LegacyAutomation
                 bool enabled = (Convert.ToInt32(acc.get_accState(child)) & 1) == 0;
                 bool control = role is 43 or 30; // push button, link
                 exposed |= control;
-                downloading |= LauncherSignals.IsDownloadActive(label);
                 bool isRetry = enabled && control && LauncherSignals.IsRetry(label);
                 bool isResume = enabled && control && LauncherSignals.IsResume(label);
                 retry |= isRetry; resume |= isResume;
-                if (!invoked && ((isRetry && retryAction) || (isResume && resumeAction)) && !string.IsNullOrEmpty(acc.get_accDefaultAction(child)))
+                if (!invoked && (RetryPolicy.Choose(isRetry && retryAction, isResume, resumeAction) != RetryAction.None) && !string.IsNullOrEmpty(acc.get_accDefaultAction(child)))
                 { ct.ThrowIfCancellationRequested(); invoked = invoke(() => acc.accDoDefaultAction(child)); }
                 if (child is not int value || value != 0) return;
                 int count = Math.Min(acc.accChildCount, Math.Max(0, remaining));
@@ -63,6 +62,6 @@ public static class LegacyAutomation
             if (AccessibleObjectFromWindow(window, unchecked((uint)-4), ref iid, out var root) >= 0 && root != null) Visit(root, 0, 0);
             if (remaining <= 0) break;
         }
-        return new(retry, resume, downloading, resume && !retry && !downloading, exposed, invoked);
+        return new(retry, resume, exposed, invoked);
     }
 }

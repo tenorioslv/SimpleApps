@@ -3,7 +3,7 @@ using System.Threading;
 using System.Threading.Tasks;
 using System.Windows.Automation;
 namespace RockstarGuardian.Services;
-public sealed record LauncherUiState(bool Retry, bool Resume, bool Downloading, bool Paused, bool Accessible, bool Invoked);
+public sealed record LauncherUiState(bool Retry, bool Resume, bool Accessible, bool Invoked);
 public sealed class AutomationService
 {
     private Task<LauncherUiState>? pending;
@@ -12,12 +12,12 @@ public sealed class AutomationService
     private bool InvokeCommand(Action action)
     {
         long now = DateTime.UtcNow.Ticks, previous = Interlocked.Read(ref lastCommand);
-        if (now - previous < TimeSpan.FromSeconds(15).Ticks || Interlocked.CompareExchange(ref lastCommand, now, previous) != previous) return false;
+        if (!RetryPolicy.CanInvoke(TimeSpan.FromTicks(now - previous)) || Interlocked.CompareExchange(ref lastCommand, now, previous) != previous) return false;
         action(); return true;
     }
     public async Task<LauncherUiState> InspectAsync(string launcher, bool invokeRetry, bool allowResume, CancellationToken ct)
     {
-        LauncherUiState state = new(false, false, false, false, false, false);
+        LauncherUiState state = new(false, false, false, false);
         if (pending is not { IsCompleted: false }) state = await InspectPrimaryAsync(launcher, invokeRetry, allowResume, ct);
         if (state.Invoked || legacy is { IsCompleted: false }) return state;
         var deadline = CancellationTokenSource.CreateLinkedTokenSource(ct);
@@ -25,14 +25,14 @@ public sealed class AutomationService
         legacy = Task.Run(() =>
         {
             try { return LegacyAutomation.Inspect(launcher, invokeRetry, allowResume, InvokeCommand, deadline.Token); }
-            catch (OperationCanceledException) when (!ct.IsCancellationRequested) { return new(false, false, false, false, false, false); }
+            catch (OperationCanceledException) when (!ct.IsCancellationRequested) { return new(false, false, false, false); }
             finally { deadline.Dispose(); }
         });
         try
         {
             var other = await legacy.WaitAsync(TimeSpan.FromSeconds(3), ct);
-            bool retry = state.Retry || other.Retry, resume = state.Resume || other.Resume, downloading = state.Downloading || other.Downloading;
-            return new(retry, resume, downloading, resume && !retry && !downloading, state.Accessible || other.Accessible, state.Invoked || other.Invoked);
+            bool retry = state.Retry || other.Retry, resume = state.Resume || other.Resume;
+            return new(retry, resume, state.Accessible || other.Accessible, state.Invoked || other.Invoked);
         }
         catch (TimeoutException) { return state; }
     }
@@ -43,15 +43,15 @@ public sealed class AutomationService
         pending = Task.Run(() =>
         {
             try { return Inspect(launcher, invokeRetry, allowResume, InvokeCommand, deadline.Token); }
-            catch (OperationCanceledException) when (!ct.IsCancellationRequested) { return new(false, false, false, false, false, false); }
+            catch (OperationCanceledException) when (!ct.IsCancellationRequested) { return new(false, false, false, false); }
             finally { deadline.Dispose(); }
         });
         try { return await pending.WaitAsync(TimeSpan.FromSeconds(3), ct); }
-        catch (TimeoutException) { return new(false, false, false, false, false, false); }
+        catch (TimeoutException) { return new(false, false, false, false); }
     }
     private static LauncherUiState Inspect(string launcher, bool invokeRetry, bool allowResume, Func<Action, bool> invoke, CancellationToken ct)
     {
-        bool retry = false, resume = false, downloading = false, accessible = false, invoked = false;
+        bool retry = false, resume = false, accessible = false, invoked = false;
         foreach (int pid in LauncherProcesses.Find(launcher))
         {
             try
@@ -60,18 +60,17 @@ public sealed class AutomationService
                 foreach (AutomationElement window in windows)
                 {
                     ct.ThrowIfCancellationRequested();
-                    var elements = window.FindAll(TreeScope.Descendants, new OrCondition(new PropertyCondition(AutomationElement.ControlTypeProperty, ControlType.Button), new PropertyCondition(AutomationElement.ControlTypeProperty, ControlType.Hyperlink), new PropertyCondition(AutomationElement.ControlTypeProperty, ControlType.Text)));
+                    var elements = window.FindAll(TreeScope.Descendants, new OrCondition(new PropertyCondition(AutomationElement.ControlTypeProperty, ControlType.Button), new PropertyCondition(AutomationElement.ControlTypeProperty, ControlType.Hyperlink)));
                     for (int i = 0; i < Math.Min(elements.Count, 500); i++)
                     {
                         ct.ThrowIfCancellationRequested();
                         var element = elements[i]; var current = element.Current;
                         accessible = true;
                         bool actionable = current.ControlType == ControlType.Button || current.ControlType == ControlType.Hyperlink;
-                        downloading |= LauncherSignals.IsDownloadActive(current.Name);
                         bool isRetry = actionable && current.IsEnabled && LauncherSignals.IsRetry(current.Name);
                         bool isResume = actionable && current.IsEnabled && LauncherSignals.IsResume(current.Name);
                         retry |= isRetry; resume |= isResume;
-                        if (!invoked && ((isRetry && invokeRetry) || (isResume && allowResume)))
+                        if (!invoked && (RetryPolicy.Choose(isRetry && invokeRetry, isResume, allowResume) != RetryAction.None))
                         {
                             ct.ThrowIfCancellationRequested();
                             if (element.TryGetCurrentPattern(InvokePattern.Pattern, out var pattern)) invoked = invoke(() => ((InvokePattern)pattern).Invoke());
@@ -81,6 +80,6 @@ public sealed class AutomationService
             }
             catch (Exception e) when (e is ElementNotAvailableException or InvalidOperationException or System.Runtime.InteropServices.COMException or UnauthorizedAccessException) { }
         }
-        return new(retry, resume, downloading, resume && !retry && !downloading, accessible, invoked);
+        return new(retry, resume, accessible, invoked);
     }
 }

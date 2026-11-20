@@ -6,7 +6,7 @@ Repositório de aplicativos simples, organizados em pastas independentes e docum
 
 ## Aplicativos
 
-- [Rockstar Download Guardian Pro](rockstar-download-guardian-pro/) — Aplicativo Windows 11 em C# / .NET 8 WPF que inicia automaticamente, detecta o Rockstar Launcher e tenta retomar falhas sem exigir a pasta do GTA ou configuração inicial. Inclui bandeja do sistema e preferências locais opcionais.
+- [Rockstar Download Guardian Pro](rockstar-download-guardian-pro/) — Aplicativo Windows 11 em C# / .NET 8 WPF que espera avisos de erro do Rockstar Launcher e tenta acionar Tentar novamente automaticamente. Inicia sem configuração, permanece na bandeja e não mede o download.
 
 ## Organização
 
